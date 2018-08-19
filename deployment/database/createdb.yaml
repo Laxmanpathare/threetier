@@ -1,0 +1,52 @@
+---
+- hosts: localhost
+  tasks:
+    - name: example ec2 group
+      ec2_group:
+        name: dbsg
+        description: an example EC2 group
+        vpc_id: vpc-0b2ee9b0aa8d448c3
+        region: us-east-1
+        rules:
+          - proto: tcp
+            from_port: 3306
+            to_port: 3306
+            cidr_ip: 0.0.0.0/0
+      register: dbsg
+    - debug:
+        var: dbsg
+    - rds_subnet_group:
+        state: present
+        region: us-east-1
+        name: dbsubnet
+        description: My Fancy Ex Parrot Subnet Group
+        subnets:
+          - subnet-0e59f3cd47687fc62
+          - subnet-04d77344b4aeb28a8
+      register: dbsubnet
+    - debug:
+        var: dbsubnet
+    - rds:
+        command: create
+        region: us-east-1
+        instance_name: myapp-database
+        db_name: userdb
+        db_engine: MySQL
+        size: 10
+        instance_type: db.t2.micro
+        username: mysql_admin
+        password: 1nsecure
+        subnet: dbsubnet
+        license_model: "general-public-license"
+        vpc_security_groups: "{{ dbsg.group_id }}"
+        multi_zone: no
+        wait: yes
+        wait_timeout: 900
+      register: mydb
+    - debug:
+        var: mydb
+    - replace:
+        path: ../frontend/threetier.yaml
+        regexp: 'DATABASENAME'
+        replace: "{{ mydb.instance.endpoint }}"
+        backup: yes

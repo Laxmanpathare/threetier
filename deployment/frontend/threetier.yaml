@@ -1,0 +1,125 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: threetier
+        tier: backend
+        track: stable
+    spec:
+      containers:
+        - name: backend
+          image: "laxmanpathare/backend"
+          ports:
+            - name: http
+              containerPort: 80
+          resources:
+            limits:
+              memory: "300Mi"
+              cpu: "0.5"
+            requests:
+              memory: "100Mi"
+              cpu: "0.25"
+          env:
+            - name: "MY_DB_USER"
+              value: "mysql_admin"
+            - name: "MY_DB_PASS"
+              value: "1nsecure"
+            - name: "MY_DB_NAME"
+              value: "userdb"
+            - name: "MY_DB_HOST"
+              value: "DATABASENAME"
+
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: deployment
+    name: backend
+  minReplicas: 4
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 50              
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backend
+spec:
+  selector:
+    app: threetier
+    tier: backend
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: http
+
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: threetier
+        tier: frontend
+        track: stable
+    spec:
+      containers:
+      - name: frontend
+        image: "laxmanpathare/frontend"
+        ports:
+          - name: http
+            containerPort: 80
+        resources:
+          limits:
+             memory: "300Mi"
+             cpu: "0.5"
+          requests:
+            memory: "100Mi"
+            cpu: "0.25"
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: deployment
+    name: frontend
+  minReplicas: 4
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 50               
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: threetier
+    tier: frontend
+  ports:
+  - protocol: "TCP"
+    port: 80
+    targetPort: 80
+  type: LoadBalancer
